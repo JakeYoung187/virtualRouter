@@ -19,13 +19,14 @@ def mactobinary(mac):
 #1
 #from http://stackoverflow.com/questions/2986702/need-some-help-converting-a-mac-address-to-binary-data-for-use-in-an-ethernet-fr
 
+routing = "global"
 class vrouter(object):
-
+    
     def readtable(self, name):
         rtable = []
         f=open(name, 'r')
         for line in f:
-            rtable.append(line.rstrip().split(' '))
+            rtable.append(line.replace("/"," ").rstrip().split(' '))
         return rtable
 
     def __init__(self):
@@ -37,7 +38,7 @@ class vrouter(object):
 
         #read in routing table
         name = raw_input("Enter routing table name: ")
-        self.routing = self.readtable(name)
+        routing = self.readtable(name)
         #print(self.routing)
 
     def sniff(self):
@@ -65,7 +66,7 @@ class vrouter(object):
 
                     if dest == myIP:
                         if aHeader[4] == '\x00\x01':
-                            print 'Got an ARP request'
+                            print 'Got an ARP request'                            
                             dMAC = myMAC
                             self.respondToArp(packet, dMAC)
             elif eType == '\x08\x00':
@@ -77,20 +78,31 @@ class vrouter(object):
                     pheader = struct.unpack("1s1s2s4s", ph)
                     if pheader[0] == '\x08':
                         netlist = netifaces.interfaces()
-                        des = socket.inet_ntoa(iheader[9])
+                        dest = socket.inet_ntoa(iheader[9])
                         for net in netlist:
                             myIP = netifaces.ifaddresses(net)[2][0]['addr']
                             myMAC = netifaces.ifaddresses(net)[17][0]['addr']
                             if dest == myIP:
-                                print 'got an icmp request'
+                                print 'got an icmp request'                                
                                 dMAC = myMAC
                                 self.respondToIcmp(packet, dMAC)
- 
+                            else:
+                                print 'Not for me need to route'
+                                #trying to match the destination ip with and ip in the table to find
+                                #an interface to send another arp over to 
+                                #having trouble matching the destination ip with the ips
+                                #in the file
+                                if any(dest in x[0] for x in routing):
+                                    #the 3 spot in the table file is the interface, just trying to 
+                                    #matht the interface to send packet over
+                                    if net == x[3]:
+                                        self.respondToArp(packet,dest)
+
                 #elif protocol == '\x06':
-                 #   print 'n'
+                #   print 'n'
                     #tcp
                 #elif protocol == '\x11':
-                 #   print 'n'
+                #   print 'n'
                     #udp
 
     def respondToIcmp(self, packet, dMAC):
@@ -126,6 +138,27 @@ class vrouter(object):
         ah[8] = a[6]
         ah[7] = a[5]
         ah[5] = mactobinary(dMAC)
+        #pack n send
+        newE = struct.pack("6s6s2s", *eh)
+        newA = struct.pack("2s2s1s1s2s6s4s6s4s", *ah)
+        sendPacket = newE+newA
+        self.sock.sendto(sendPacket, packet[1])
+        print 'arp response sent'
+
+    #new method to send and ARP to fine the mac for the next node instead of sending mac
+    #it send the ip of the mac it is looking for
+    def SendingArp(self, packet, dest):
+        e = struct.unpack("!6s6s2s", packet[0][0:14])
+        eh = list(e)
+        eh[0] = e[1]
+        eh[1] = mactobinary(netifaces.ifaddresses(net)[17][0]['addr'])
+        a = struct.unpack("2s2s1s1s2s6s4s6s4s", packet[0][14:42])
+        ah = list(a)
+        ah[4] = '\x00\x02'
+        ah[6] = a[8]
+        ah[8] = dest
+        ah[7] = a[5]
+        ah[5] = mactobinary(netifaces.ifaddresses(net)[17][0]['addr'])
         #pack n send
         newE = struct.pack("6s6s2s", *eh)
         newA = struct.pack("2s2s1s1s2s6s4s6s4s", *ah)
