@@ -38,6 +38,7 @@ class vrouter(object):
 
         #read in routing table
         name = raw_input("Enter routing table name: ")
+        global routing
         routing = self.readtable(name)
         #print(self.routing)
 
@@ -69,6 +70,8 @@ class vrouter(object):
                             print 'Got an ARP request'                            
                             dMAC = myMAC
                             self.respondToArp(packet, dMAC)
+                            elif aHeader[4] == '\x00\x02':
+                                
             elif eType == '\x08\x00':
                 ih = packet[0][14:34]
                 iheader = struct.unpack("1s1s2s2s2s1s1s2s4s4s", ih)
@@ -92,11 +95,13 @@ class vrouter(object):
                                 #an interface to send another arp over to 
                                 #having trouble matching the destination ip with the ips
                                 #in the file
-                                if any(dest in x[0] for x in routing):
+                                #if dest == self.check(dest):
+                                    #print 'found one'
                                     #the 3 spot in the table file is the interface, just trying to 
                                     #matht the interface to send packet over
-                                    if net == x[3]:
-                                        self.respondToArp(packet,dest)
+                                if net == self.check(dest) :
+                                    print 'Not for me need to route'                                        
+                                    self.respondToArp(packet,dest)
 
                 #elif protocol == '\x06':
                 #   print 'n'
@@ -166,6 +171,12 @@ class vrouter(object):
         self.sock.sendto(sendPacket, packet[1])
         print 'arp response sent'
 
+    def check(self,dest):
+        maps = {'16':4,'24':6}
+        for addr in routing:            
+            if dest[:maps[addr[1]]] == addr[0][:maps[addr[1]]]:
+                print 'found match'
+                return addr[3]
 
 def main(argv):
     router = vrouter()
