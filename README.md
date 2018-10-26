@@ -1,2 +1,6 @@
 # virtualRouter
-host sees and responds to arp, but i do not think the recv inside of getMAC is getting the reply packet and it is making it keep looping and keep sending arps
+
+virtual router that doesn't route
+
+sends arp, host responds, fowards first packet, then nothing just looping
+not sure why
