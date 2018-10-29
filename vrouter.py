@@ -43,7 +43,6 @@ class vrouter(object):
         name = raw_input("Enter routing table name: ")
         self.routing = self.readtable(name)
         self.mactable = {}
-        #print(self.routing)
 
     def sniff(self):
         #grabbing packets
@@ -106,10 +105,10 @@ class vrouter(object):
                         continue
                         #maybe exit or break
                     key = dip
-                    print key
                     if key in self.mactable:
                         forwardMAC = self.mactable[dip]
                         self.forward(packet,forwardMAC)
+                        continue
                     else:
                         forwardMAC = self.getMAC(packet, fDest, dip)
 
@@ -177,17 +176,14 @@ class vrouter(object):
         if nexthop == '-' or nexthop == '':
             nexthop = newI[9]
         aheader[8] = nexthop
+        
         sendA = struct.pack("2s2s1s1s2s6s4s6s4s", *aheader)
         sendpacket = finalE+sendA
         #self.sock.sendto(sendpacket, (socket.inet_aton(myip), net)) #packet[1] is not a right destination
-        for x in packet[1]:
-            print x
         p = list(packet[1])
         p[0] = self.interface.strip()
         p[3] = int(self.interface[6:7])
         addr = tuple(p)
-        for y in addr:
-            print y
         asock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x003))
         asock.sendto(sendpacket, addr)
         count = 0
@@ -195,7 +191,6 @@ class vrouter(object):
             newerpacket = asock.recvfrom(1024)
             q = newerpacket[0][14:42]
             qq = struct.unpack("2s2s1s1s2s6s4s6s4s", q)
-            print count
             if qq[4] == '\x00\x02':
                 count = count + 1
         asock.close()
@@ -221,6 +216,7 @@ class vrouter(object):
             if dest[0:maps[mask]] == a[0][0:maps[mask]]:
                 print 'found match'
                 self.interface = a[2]
+                #sending back ip?
                 return a[1]
         return 'nomatch'
                 #if a[1] != '-':
