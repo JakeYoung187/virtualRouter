@@ -2,5 +2,6 @@
 
 virtual router that doesn't route
 
-sends arp, host responds, fowards first packet, then nothing just looping
-not sure why
+ttl alteration is in the forward method, but is commented out because it doesn't let it forward with it
+
+
