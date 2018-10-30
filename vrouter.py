@@ -29,6 +29,39 @@ class vrouter(object):
     def mactobinary(self, mac):
         return binascii.unhexlify(mac.replace(':', ''))
 
+
+
+    #!/usr/bin/env python
+#-------------------------------------------------------------------------------
+# Name:        checksum.py
+#
+# Author:      Grant Curell
+#
+# Created:     16 Sept 2012
+#
+# Description: Calculates the checksum for an IP header
+# from https://www.codeproject.com/Tips/460867/Python-Implementation-of-IP-Checksum
+#-------------------------------------------------------------------------------
+    
+    
+    def ip_checksum(ip_header, size):    
+        cksum = 0
+        pointer = 0
+        
+        #The main loop adds up each set of 2 bytes. They are first converted to strings and then concatenated
+        #together, converted to integers, and then added to the sum.
+        while size > 1:
+            cksum += int((str("%02x" % (ip_header[pointer],)) + str("%02x" % (ip_header[pointer+1],))), 16)
+            size -= 2
+            pointer += 2
+        if size: #This accounts for a situation where the header is odd
+            cksum += ip_header[pointer]
+            
+        cksum = (cksum >> 16) + (cksum & 0xffff)
+        cksum += (cksum >>16)
+        
+        return (~cksum) & 0xFFFF
+
     def readtable(self, name):
         rtable = []
         f=open(name, 'r')
@@ -131,6 +164,11 @@ class vrouter(object):
     def forward(self, packet, mac):
         e = packet[0][0:14]
         eheader = list(struct.unpack("!6s6s2s", e))
+        i = packet[0][14:34]
+        IHeader = struct.unpack("1s1s2s2s2s1s1s2s4s4s", i)
+        print "printing checksum"
+        checksumReturn = self.ip_checksum(binascii.hexlify(i),len(i))
+        print checksumReturn
         temp = eheader
         eheader[0] = mac
         eheader[1] = temp[0]
@@ -200,18 +238,20 @@ class vrouter(object):
         
         if nexthop == '-' or nexthop == '':
             nexthop = newI[9]
+        else:
+            nexthop = socket.inet_aton(nexthop)
         aheader[8] = nexthop
         sendA = struct.pack("2s2s1s1s2s6s4s6s4s", *aheader)
         sendpacket = finalE+sendA
         #self.sock.sendto(sendpacket, (socket.inet_aton(myip), net)) #packet[1] is not a right destination
-        for x in packet[1]:
-            print x
+        #for x in packet[1]:
+            #print x
         p = list(packet[1])
         p[0] = self.interface.strip()
         p[3] = int(self.interface[6:7])
         addr = tuple(p)
-        for y in addr:
-            print y
+        #for y in addr:
+            #print y
         asock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x003))
         asock.sendto(sendpacket, addr)
         count = 0
@@ -232,7 +272,7 @@ class vrouter(object):
         #newerpacket = self.sock.recv(1024)    
         e2 = newerpacket[0][0:14]
         e3 = struct.unpack("!6s6s2s", e)
-        print 'forward mac', e3[1]
+        print 'forward mac', binascii.hexlify(e3[1])
         self.mactable[dip] = e3[1]
         return e3[1]
         #############################
